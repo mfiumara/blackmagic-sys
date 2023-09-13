@@ -85,11 +85,22 @@ impl BlackMagicProbe {
         return ret;
     }
 
+    pub fn close() {
+        unsafe {
+            serial_close();
+        }
+    }
+
     // Asserts the nrst line when input is true
     // Returns true or exits in case the call failed
     pub fn nrst_set(&self, assert: bool) -> Result<bool> {
         unsafe { remote_nrst_set_val(assert) }
         Ok(true)
+    }
+
+    // Returns wether nrst is asserted (true) or not
+    pub fn nrst_get(&self) -> bool {
+        unsafe { remote_nrst_get_val() }
     }
 
     // Get the maximum speed of the probe
@@ -112,7 +123,7 @@ impl BlackMagicProbe {
     }
 
     // Gets the target voltage
-    pub fn target_voltage(&self) -> String {
+    pub fn target_voltage(&self) -> Result<f32> {
         let cstr = unsafe { platform_target_voltage() };
         let c_str = unsafe { CStr::from_ptr(cstr) };
 
@@ -120,14 +131,27 @@ impl BlackMagicProbe {
         match c_str.to_str() {
             Ok(rust_str) => {
                 // The conversion succeeded
-                return rust_str.to_string();
+                // Remove non-numeric characters (e.g., "V")
+                let numeric_str: String = rust_str
+                    .chars()
+                    .filter(|c| c.is_digit(10) || *c == '.')
+                    .collect();
+
+                // Parse the resulting numeric string to a float
+                if let Ok(float_value) = numeric_str.parse::<f32>() {
+                    return Ok(float_value);
+                } else {
+                    return Err(BlackMagicProbeError {
+                        message: "Failed to parse the string as a float.".to_string(),
+                    });
+                }
             }
             Err(_) => {
-                // Handle the error (invalid UTF-8)
-                println!("Invalid UTF-8 data in C string");
+                return Err(BlackMagicProbeError {
+                    message: "Invalid UTF-8 data in C string".to_string(),
+                });
             }
         }
-        return "".to_string();
     }
 }
 
@@ -159,14 +183,14 @@ mod tests {
         use std::time::Duration;
         let duration = Duration::from_millis(10);
         let serial = "98B72495";
-        let target_voltage = "1.8V";
+        let target_voltage: f32 = 1.8;
 
         // This test only works when a bmp is connect with the serial number specified in the variable below
         let bmp = super::BlackMagicProbe::open_by_serial(serial).unwrap();
 
         // Target voltage should be ON after initializing
         sleep(duration);
-        assert_eq!(bmp.target_voltage(), target_voltage);
+        assert_eq!(bmp.target_voltage().unwrap(), target_voltage);
 
         // We should be able to set the speed to a lower value of the max
         let speed1 = bmp.max_speed_get();
@@ -174,6 +198,12 @@ mod tests {
         bmp.max_speed_set(speed1 / 2);
         let speed2 = bmp.max_speed_get();
         assert!(speed2 < speed1);
+
+        // We should be able to assert and de-assert the reset-line
+        assert!(bmp.nrst_set(true).unwrap());
+        assert!(bmp.nrst_get());
+        assert!(bmp.nrst_set(false).unwrap());
+        assert!(!bmp.nrst_get());
 
         // We should be able to turn off power
         // let duration = Duration::from_secs(1);
