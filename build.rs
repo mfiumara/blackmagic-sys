@@ -57,31 +57,6 @@ fn link_libraries() {
     println!("cargo:rustc-link-lib=command.o");
     println!("cargo:rustc-link-lib=platform.o");
     println!("cargo:rustc-link-lib=exception.o");
-    // println!("cargo:rustc-link-lib=bmp_serial.o");
-    // println!("cargo:rustc-link-lib=cli.o");
-    // println!("cargo:rustc-link-lib=adiv5.o");
-    // println!("cargo:rustc-link-lib=adiv5_swd.o");
-    // println!("cargo:rustc-link-lib=jtag_scan.o");
-    // println!("cargo:rustc-link-lib=gdb_if.o");
-    // println!("cargo:rustc-link-lib=gdb_packet.o");
-
-    // println!("cargo:rustc-link-lib=rtt.o");
-
-    // Targets
-    // println!("cargo:rustc-link-lib=cortex.o");
-    // println!("cargo:rustc-link-lib=cortexa.o");
-    // println!("cargo:rustc-link-lib=cortexm.o");
-    // println!("cargo:rustc-link-lib=stm32f1.o");
-    // println!("cargo:rustc-link-lib=stm32f4.o");
-    // println!("cargo:rustc-link-lib=stm32g0.o");
-    // println!("cargo:rustc-link-lib=stm32h5.o");
-    // println!("cargo:rustc-link-lib=stm32h7.o");
-    // println!("cargo:rustc-link-lib=stm32l0.o");
-    // println!("cargo:rustc-link-lib=stm32l4.o");
-    // println!("cargo:rustc-link-lib=renesas.o");
-    // println!("cargo:rustc-link-lib=target_flash.o");
-    // println!("cargo:rustc-link-lib=target.o");
-    // println!("cargo:rustc-link-lib=target_probe.o");
 
     // Protocols
     println!("cargo:rustc-link-lib=protocol_v0_adiv5.o");
@@ -104,19 +79,16 @@ fn link_libraries() {
 }
 
 fn compile_bmp() {
-    // Environment variables needed by blackmagic build
-    // std::env::set_var("PROBE_HOST", "hosted");
-    // std::env::set_var("HOSTED_BMP_ONLY", "1");
-    // std::env::set_var("ENABLE_RTT", "1");
-
     // Add logic to invoke the external build system (e.g., `make`)
-    // let make_output = std::process::Command::new("blackmagic")
-    //     .current_dir("./blackmagic")
-    //     .env("PROBE_HOST", "hosted")
-    //     .env("HOSTED_BMP_ONLY", 1.to_string())
-    //     .env("ENABLE_RTT", 1.to_string())
-    //     .status()
-    //     .expect("Failed to run 'make'");
+    let make_output = std::process::Command::new("make")
+        .current_dir("blackmagic")
+        .env("PROBE_HOST", "hosted")
+        .env("HOSTED_BMP_ONLY", 1.to_string())
+        .env("ENABLE_RTT", 1.to_string())
+        .env("PC_HOSTED", 1.to_string())
+        .env("ENABLE_DEBUG", 1.to_string())
+        .status()
+        .expect("Failed to run 'make'");
 
     // if !make_output.success() {
     //     panic!("External C project build failed");

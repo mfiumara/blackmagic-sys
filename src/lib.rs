@@ -176,6 +176,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     // These tests are to be run with a bmp connected with the serial provided
     // In addition, a target needs to be connected with the specified supply voltage
     // A bmp connected to an nrf DK or thingy would be a proper set-up for
