@@ -17,6 +17,9 @@ pub struct BlackMagicProbeError {
     message: String,
 }
 
+pub const VENDOR_ID: u16 = VENDOR_ID_BMP as u16;
+pub const PRODUCT_IDS: [u16; 2] = [PRODUCT_ID_BMP_BL as u16, PRODUCT_ID_BMP as u16];
+
 impl fmt::Display for BlackMagicProbeError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.message)
@@ -28,19 +31,20 @@ impl Error for BlackMagicProbeError {}
 pub type Result<T> = std::result::Result<T, BlackMagicProbeError>;
 
 #[derive(Debug)]
-pub struct BlackMagicProbe {
+pub struct Probe {
     // The serial number of the probe
     serial: String,
 }
 
 const MAX_SPEED: u32 = 4_000_000;
 
-impl BlackMagicProbe {
+impl Probe {
     // Opens the device handle for the specified serial number of the Black Magic Probe
     pub fn open_by_serial(serial: &str) -> Result<Self> {
         // Set the probe type to BMDA, this normally gets set during platform_init which we do not want to call
         unsafe { bmda_probe_info.type_ = probe_type_PROBE_TYPE_BMP }
         let input = CString::new(serial).expect("CString conversion failed");
+        // todo: replace with global opts struct used by bmp
         let options = bmda_cli_options {
             opt_target_dev: 1,
             opt_flash_size: 0xffffffff,
@@ -70,7 +74,7 @@ impl BlackMagicProbe {
                 message: "Could not open serial device".to_string(),
             });
         }
-        let bmp = BlackMagicProbe {
+        let bmp = Probe {
             serial: serial.to_string(),
         };
 
@@ -81,14 +85,12 @@ impl BlackMagicProbe {
             });
         }
 
-        let ret: Result<BlackMagicProbe> = Ok(bmp);
+        let ret: Result<Probe> = Ok(bmp);
         return ret;
     }
 
     pub fn close() {
-        unsafe {
-            serial_close();
-        }
+        unsafe { serial_close() }
     }
 
     // Asserts the nrst line when input is true
@@ -186,7 +188,7 @@ mod tests {
         let target_voltage: f32 = 1.8;
 
         // This test only works when a bmp is connect with the serial number specified in the variable below
-        let bmp = super::BlackMagicProbe::open_by_serial(serial).unwrap();
+        let bmp = super::Probe::open_by_serial(serial).unwrap();
 
         // Target voltage should be ON after initializing
         sleep(duration);
