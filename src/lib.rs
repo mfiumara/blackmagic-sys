@@ -5,7 +5,7 @@
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
 use std::error::Error;
-use std::ffi::CString;
+use std::ffi::{CStr, CString};
 use std::fmt;
 use std::ptr;
 
@@ -31,8 +31,6 @@ pub type Result<T> = std::result::Result<T, BlackMagicProbeError>;
 pub struct BlackMagicProbe {
     // The serial number of the probe
     serial: String,
-    // The maximum speed in Hz of the debug probe
-    pub speed: u32,
 }
 
 const MAX_SPEED: u32 = 4_000_000;
@@ -40,6 +38,8 @@ const MAX_SPEED: u32 = 4_000_000;
 impl BlackMagicProbe {
     // Opens the device handle for the specified serial number of the Black Magic Probe
     pub fn open_by_serial(serial: &str) -> Result<Self> {
+        // Set the probe type to BMDA, this normally gets set during platform_init which we do not want to call
+        unsafe { bmda_probe_info.type_ = probe_type_PROBE_TYPE_BMP }
         let input = CString::new(serial).expect("CString conversion failed");
         let options = bmda_cli_options {
             opt_target_dev: 1,
@@ -72,7 +72,6 @@ impl BlackMagicProbe {
         }
         let bmp = BlackMagicProbe {
             serial: serial.to_string(),
-            speed: MAX_SPEED,
         };
 
         let result = unsafe { remote_init(true) };
@@ -85,11 +84,50 @@ impl BlackMagicProbe {
         let ret: Result<BlackMagicProbe> = Ok(bmp);
         return ret;
     }
+
     // Asserts the nrst line when input is true
     // Returns true or exits in case the call failed
-    pub fn nrst_set(assert: bool) -> Result<bool> {
+    pub fn nrst_set(&self, assert: bool) -> Result<bool> {
         unsafe { remote_nrst_set_val(assert) }
-        return Ok(true);
+        Ok(true)
+    }
+
+    // Get the maximum speed of the probe
+    pub fn max_speed_get(&self) -> u32 {
+        unsafe { platform_max_frequency_get() }
+    }
+
+    // Sets the maximum speed of the probe
+    pub fn max_speed_set(&self, speed: u32) {
+        unsafe { platform_max_frequency_set(speed) }
+    }
+
+    pub fn set_power(&self, enable: bool) -> Result<bool> {
+        if unsafe { platform_target_set_power(enable) } {
+            return Ok(enable);
+        }
+        Err(BlackMagicProbeError {
+            message: "Could not set target power".to_string(),
+        })
+    }
+
+    // Gets the target voltage
+    pub fn target_voltage(&self) -> String {
+        let cstr = unsafe { platform_target_voltage() };
+        let c_str = unsafe { CStr::from_ptr(cstr) };
+
+        // Attempt to convert the CStr to a &str (Rust string slice)
+        match c_str.to_str() {
+            Ok(rust_str) => {
+                // The conversion succeeded
+                return rust_str.to_string();
+            }
+            Err(_) => {
+                // Handle the error (invalid UTF-8)
+                println!("Invalid UTF-8 data in C string");
+            }
+        }
+        return "".to_string();
     }
 }
 
@@ -112,14 +150,38 @@ mod tests {
     }
 
     #[test]
-    fn test_bmp_open() {
-        let bmp = super::BlackMagicProbe::open_by_serial("98B72495");
-        match bmp {
-            Ok(bmp) => {}
-            Err(e) => {
-                assert!(false, "open_by_serial returned error");
-            }
-        }
+    // These tests are to be run with a bmp connected with the serial provided
+    // In addition, a target needs to be connected with the specified supply voltage
+    // A bmp connected to an nrf DK or thingy would be a proper set-up for
+    // having the tests pass
+    fn test_bmp_hil() {
+        use std::thread::sleep;
+        use std::time::Duration;
+        let duration = Duration::from_millis(10);
+        let serial = "98B72495";
+        let target_voltage = "1.8V";
+
+        // This test only works when a bmp is connect with the serial number specified in the variable below
+        let bmp = super::BlackMagicProbe::open_by_serial(serial).unwrap();
+
+        // Target voltage should be ON after initializing
+        sleep(duration);
+        assert_eq!(bmp.target_voltage(), target_voltage);
+
+        // We should be able to set the speed to a lower value of the max
+        let speed1 = bmp.max_speed_get();
+        assert!(speed1 > 0);
+        bmp.max_speed_set(speed1 / 2);
+        let speed2 = bmp.max_speed_get();
+        assert!(speed2 < speed1);
+
+        // We should be able to turn off power
+        // let duration = Duration::from_secs(1);
+        // sleep(duration);
+        // assert!(bmp.set_power(false).unwrap());
+
+        // // Target voltage should be OFF after setting power
+        // assert_eq!(bmp.target_voltage(), "0.0V");
     }
 }
 // bool platform_buffer_write(const void *data, size_t size);
