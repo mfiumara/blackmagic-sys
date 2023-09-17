@@ -21,6 +21,11 @@ jobs:
     - uses: actions/checkout@v4
       with:
         submodules: recursive
+    - name: Install Dependencies (windows)
+      run: |
+        rustup toolchain install stable-gnu|
+        rustup set default-host x86_64-pc-windows-gnu
+      if: matrix.os == 'windows-latest'
     - name: Build
       run: cargo build --verbose
     - name: Run tests
