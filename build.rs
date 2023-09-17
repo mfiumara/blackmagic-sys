@@ -4,15 +4,12 @@ use std::env;
 use std::path::PathBuf;
 
 fn main() {
-    compile_bmp();
-    link_libraries();
-
     // Tell cargo to invalidate the built crate whenever the wrapper changes
     println!("cargo:rerun-if-changed=lib/wrapper.h");
 
-    // The bindgen::Builder is the main entry point
-    // to bindgen, and lets you build up options for
-    // the resulting bindings.
+    // Compile blackmagic with the cc crate
+    compile_with_cc();
+
     let bindings = bindgen::Builder::default()
         // The input header we would like to generate
         // bindings for.
@@ -45,52 +42,51 @@ fn main() {
         .expect("Couldn't write bindings!");
 }
 
-fn link_libraries() {
-    // Tell cargo to look for shared libraries in the specified directory
-    println!("cargo:rustc-link-search=blackmagic/src");
+fn compile_with_cc() {
+    let binding = cc::Build::new();
+    let mut build = binding;
 
-    // Tell cargo to link blackmagic
-    println!("cargo:rustc-link-lib=bmp_remote.o");
-    println!("cargo:rustc-link-lib=remote.o");
-    println!("cargo:rustc-link-lib=debug.o");
-    println!("cargo:rustc-link-lib=hex_utils.o");
-    println!("cargo:rustc-link-lib=command.o");
-    println!("cargo:rustc-link-lib=platform.o");
-    println!("cargo:rustc-link-lib=exception.o");
-
-    // Protocols
-    println!("cargo:rustc-link-lib=protocol_v0_adiv5.o");
-    println!("cargo:rustc-link-lib=protocol_v0_jtag.o");
-    println!("cargo:rustc-link-lib=protocol_v0_swd.o");
-    println!("cargo:rustc-link-lib=protocol_v0.o");
-    println!("cargo:rustc-link-lib=protocol_v1_adiv5.o");
-    println!("cargo:rustc-link-lib=protocol_v1.o");
-    println!("cargo:rustc-link-lib=protocol_v2.o");
-    println!("cargo:rustc-link-lib=protocol_v3_adiv5.o");
-    println!("cargo:rustc-link-lib=protocol_v3.o");
+    build
+        .files([
+            "blackmagic/src/command.c",
+            "blackmagic/src/remote.c",
+            "blackmagic/src/hex_utils.c",
+            "blackmagic/src/exception.c",
+            "blackmagic/src/platforms/hosted/bmp_remote.c",
+            "blackmagic/src/platforms/hosted/debug.c",
+            "blackmagic/src/platforms/hosted/platform.c",
+            // Protocols
+            "blackmagic/src/platforms/hosted/remote/protocol_v0_adiv5.c",
+            "blackmagic/src/platforms/hosted/remote/protocol_v0_jtag.c",
+            "blackmagic/src/platforms/hosted/remote/protocol_v0_swd.c",
+            "blackmagic/src/platforms/hosted/remote/protocol_v0.c",
+            "blackmagic/src/platforms/hosted/remote/protocol_v1_adiv5.c",
+            "blackmagic/src/platforms/hosted/remote/protocol_v1.c",
+            "blackmagic/src/platforms/hosted/remote/protocol_v2.c",
+            "blackmagic/src/platforms/hosted/remote/protocol_v3_adiv5.c",
+            "blackmagic/src/platforms/hosted/remote/protocol_v3.c",
+        ])
+        .includes([
+            "lib/include",
+            "blackmagic/src",
+            "blackmagic/src/target",
+            "blackmagic/src/include",
+            "blackmagic/src/platforms/hosted",
+        ])
+        .define("PROBE_HOST", "hosted")
+        .define("HOSTED_BMP_ONLY", "1")
+        .define("ENABLE_RTT", "1")
+        .define("PC_HOSTED", "1");
 
     // Conditionally link these files
     if cfg!(target_os = "linux") || cfg!(target_os = "macos") {
-        println!("cargo:rustc-link-lib=serial_unix.o");
+        build.file("blackmagic/src/platforms/hosted/serial_unix.c");
     }
     if cfg!(target_os = "windows") {
-        println!("cargo:rustc-link-lib=serial_win.o");
+        build.file("blackmagic/src/platforms/hosted/serial_win.c");
     }
-}
 
-fn compile_bmp() {
-    // Add logic to invoke the external build system (e.g., `make`)
-    let make_output = std::process::Command::new("make")
-        .current_dir("blackmagic")
-        .env("PROBE_HOST", "hosted")
-        .env("HOSTED_BMP_ONLY", 1.to_string())
-        .env("ENABLE_RTT", 1.to_string())
-        .env("PC_HOSTED", 1.to_string())
-        .env("ENABLE_DEBUG", 1.to_string())
-        .status()
-        .expect("Failed to run 'make'");
-
-    // if !make_output.success() {
-    //     panic!("External C project build failed");
-    // }
+    // Compile into lib and link
+    build.compile("blackmagic-lib");
+    println!("cargo:rustc-link-lib=blackmagic-lib");
 }
