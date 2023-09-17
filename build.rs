@@ -55,6 +55,7 @@ fn compile_with_cc() {
             "blackmagic/src/platforms/hosted/bmp_remote.c",
             "blackmagic/src/platforms/hosted/debug.c",
             "blackmagic/src/platforms/hosted/platform.c",
+            "blackmagic/src/platforms/hosted/utils.c",
             // Protocols
             "blackmagic/src/platforms/hosted/remote/protocol_v0_adiv5.c",
             "blackmagic/src/platforms/hosted/remote/protocol_v0_jtag.c",
