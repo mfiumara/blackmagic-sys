@@ -6,6 +6,7 @@ license = "GPL-3.0-or-later"
 authors = ["Mattia Fiumara <mfiumara@proton.me>"]
 description = "Bindings to Blackmagic-debug host functions"
 categories = ["external-ffi-bindings"]
+repository = "https://github.com/mfiumara/blackmagic-sys.git"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
