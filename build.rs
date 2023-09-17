@@ -85,6 +85,8 @@ fn compile_with_cc() {
     }
     if cfg!(target_os = "windows") {
         build.file("blackmagic/src/platforms/hosted/serial_win.c");
+        // blackmagic only supports the gnu ABI at the time of writing
+        build.target("x86_64-pc-windows-gnu");
     }
 
     // Compile into lib and link
