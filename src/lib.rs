@@ -94,10 +94,8 @@ impl Probe {
     }
 
     // Asserts the nrst line when input is true
-    // Returns true or exits in case the call failed
-    pub fn nrst_set(&self, assert: bool) -> Result<bool> {
+    pub fn nrst_set(&self, assert: bool) {
         unsafe { remote_nrst_set_val(assert) }
-        Ok(true)
     }
 
     // Returns wether nrst is asserted (true) or not
@@ -110,14 +108,15 @@ impl Probe {
         unsafe { platform_max_frequency_get() }
     }
 
-    // Sets the maximum speed of the probe
-    pub fn max_speed_set(&self, speed: u32) {
+    // Sets the maximum speed of the probe, returns the actual speed set
+    pub fn max_speed_set(&self, speed: u32) -> u32 {
         unsafe { platform_max_frequency_set(speed) }
+        self.max_speed_get()
     }
 
-    pub fn set_power(&self, enable: bool) -> Result<bool> {
+    pub fn set_power(&self, enable: bool) -> Result<()> {
         if unsafe { platform_target_set_power(enable) } {
-            return Ok(enable);
+            return Ok(());
         }
         Err(BlackMagicProbeError {
             message: "Could not set target power".to_string(),
@@ -154,6 +153,23 @@ impl Probe {
                 });
             }
         }
+    }
+
+    pub fn swd_init(&self) -> Result<()> {
+        if unsafe { remote_swd_init() } {
+            return Ok(());
+        }
+        Err(BlackMagicProbeError {
+            message: "Could not initialize swd".to_string(),
+        })
+    }
+    pub fn jtag_init(&self) -> Result<()> {
+        if unsafe { remote_jtag_init() } {
+            return Ok(());
+        }
+        Err(BlackMagicProbeError {
+            message: "Could not initialize jtag".to_string(),
+        })
     }
 }
 
@@ -203,11 +219,13 @@ mod tests {
         assert!(speed2 < speed1);
 
         // We should be able to assert and de-assert the reset-line
-        assert!(bmp.nrst_set(true).unwrap());
+        bmp.nrst_set(true);
         assert!(bmp.nrst_get());
-        assert!(bmp.nrst_set(false).unwrap());
+        bmp.nrst_set(false);
         assert!(!bmp.nrst_get());
 
+        bmp.swd_init().unwrap();
+        bmp.jtag_init().unwrap();
         // We should be able to turn off power
         // let duration = Duration::from_secs(1);
         // sleep(duration);
